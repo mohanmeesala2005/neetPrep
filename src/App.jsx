@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const MANDATORY_TASKS = [
   'Surgey/OBG - 1.5 Hrs',
@@ -9,25 +9,26 @@ const MANDATORY_TASKS = [
 ]
 
 const DAILY_TOPICS = [
-    'Ophthalmology, Radiology',
-    'FM, GT',
-    'Orthopedics, ENT,Test',
-    'Biochemistry',
-    'GT',
-    'Microbiology',
-    'Anatomy',
-    'Pediatrics',
-    'Test',
-    'OBG',
-    'OBG',
-    'Sx',
-    'Sx',
-    'PSM',
-    'PSM',
-    'Mock',
+  'Ophthalmology, Radiology',
+  'FM, GT',
+  'Orthopedics, ENT,Test',
+  'Biochemistry',
+  'GT',
+  'Microbiology',
+  'Anatomy',
+  'Pediatrics',
+  'Test',
+  'OBG',
+  'OBG',
+  'Sx',
+  'Sx',
+  'PSM',
+  'PSM',
+  'Mock',
 ]
 
 const START_DATE = new Date('2026-08-04T00:00:00+05:30')
+const END_DATE = new Date('2026-08-29T00:00:00+05:30')
 
 function formatDateInIst(date = new Date()) {
   return new Intl.DateTimeFormat('en-GB', {
@@ -48,6 +49,46 @@ function parseDateKey(dateKey) {
   return new Date(year, month - 1, day)
 }
 
+function addDaysToDateKey(dateKey, count) {
+  const date = parseDateKey(dateKey)
+  date.setDate(date.getDate() + count)
+  return getDateKeyInIst(date)
+}
+
+function getCalendarDays(selectedDateKey) {
+  const start = parseDateKey('04-08-2026')
+  const end = parseDateKey('29-08-2026')
+  const selected = parseDateKey(selectedDateKey)
+
+  const days = []
+  const current = new Date(start)
+
+  while (current <= end) {
+    days.push(getDateKeyInIst(current))
+    current.setDate(current.getDate() + 1)
+  }
+
+  return days.map((dateKey) => ({
+    dateKey,
+    isPast: parseDateKey(dateKey) < selected,
+    isSelected: dateKey === selectedDateKey,
+  }))
+}
+
+function getDayLabel(dateKey) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    weekday: 'short',
+  }).format(parseDateKey(dateKey))
+}
+
+function getDayNumber(dateKey) {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+  }).format(parseDateKey(dateKey))
+}
+
 function getDailyTopic(dateKey) {
   const today = parseDateKey(dateKey)
   const dayDiff = Math.floor((today - START_DATE) / (1000 * 60 * 60 * 24))
@@ -64,11 +105,20 @@ function createChecklist() {
 }
 
 function App() {
-  const [currentDateKey, setCurrentDateKey] = useState(() => getDateKeyInIst())
+  const [liveDateKey, setLiveDateKey] = useState(() => getDateKeyInIst())
+  const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKeyInIst())
   const [checklist, setChecklist] = useState(() => createChecklist())
+  const liveDateKeyRef = useRef(getDateKeyInIst())
 
   useEffect(() => {
-    const refreshDate = () => setCurrentDateKey(getDateKeyInIst())
+    const refreshDate = () => {
+      const newDateKey = getDateKeyInIst()
+      setLiveDateKey(newDateKey)
+      setSelectedDateKey((prevSelectedDate) =>
+        prevSelectedDate === liveDateKeyRef.current ? newDateKey : prevSelectedDate,
+      )
+      liveDateKeyRef.current = newDateKey
+    }
 
     refreshDate()
     const timer = window.setInterval(refreshDate, 60000)
@@ -78,7 +128,7 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const storageKey = `neet-prep-ladder-${currentDateKey}`
+    const storageKey = `neet-prep-ladder-${selectedDateKey}`
     const savedState = window.localStorage.getItem(storageKey)
 
     if (savedState) {
@@ -93,17 +143,18 @@ function App() {
     } else {
       setChecklist(createChecklist())
     }
-  }, [currentDateKey])
+  }, [selectedDateKey])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const storageKey = `neet-prep-ladder-${currentDateKey}`
+    const storageKey = `neet-prep-ladder-${selectedDateKey}`
     window.localStorage.setItem(storageKey, JSON.stringify(checklist))
-  }, [checklist, currentDateKey])
+  }, [checklist, selectedDateKey])
 
-  const dailyTopic = useMemo(() => getDailyTopic(currentDateKey), [currentDateKey])
+  const dailyTopic = useMemo(() => getDailyTopic(selectedDateKey), [selectedDateKey])
   const completedCount = checklist.filter((item) => item.done).length
+  const dayStrip = useMemo(() => getCalendarDays(selectedDateKey), [selectedDateKey])
 
   const toggleTask = (id) => {
     setChecklist((currentChecklist) =>
@@ -114,44 +165,71 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-emerald-50">
-      <header className="border-b border-emerald-500/20 bg-slate-950/80">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
-          <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-emerald-300">Prep Ladder</p>
-            <h1 className="text-2xl font-bold text-white">Simple Study Dashboard</h1>
+    <div className="min-h-screen bg-black text-white">
+      <header className="border-b border-white/10 bg-black/95">
+        <div className="mx-auto max-w-4xl px-4 py-4 sm:px-6">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">Prep Ladder</p>
+              <h1 className="text-2xl font-bold text-white">Simple Study Dashboard</h1>
+            </div>
+            <div className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/80">
+              Live IST: {liveDateKey}
+            </div>
           </div>
-          <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1 text-sm text-emerald-100">
-             {currentDateKey}
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            {dayStrip.map(({ dateKey, isPast, isSelected }) => {
+              const day = getDayLabel(dateKey)
+              const number = getDayNumber(dateKey)
+
+              return (
+                <button
+                  key={dateKey}
+                  onClick={() => setSelectedDateKey(dateKey)}
+                  className={`min-w-[62px] rounded-xl border px-2 py-2 text-center transition ${
+                    isSelected
+                      ? 'border-white bg-white text-black'
+                      : isPast
+                        ? 'border-white/10 bg-white/5 text-white/40'
+                        : 'border-white/15 bg-black text-white hover:border-white/40'
+                  }`}
+                >
+                  <div className="text-[9px] uppercase tracking-[0.22em]">{day}</div>
+                  <div className="mt-1 text-base font-bold">{number}</div>
+                </button>
+              )
+            })}
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <section className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-3xl border border-emerald-500/25 bg-slate-900/75 p-6 shadow-xl shadow-emerald-950/20">
-            <p className="text-xs uppercase tracking-[0.35em] text-emerald-300">Daily Topic</p>
-            <h2 className="mt-2 text-3xl font-semibold text-white">{dailyTopic}</h2>
-            <p className="mt-3 text-sm text-slate-300">
-              The mandatory items stay the same every day. When the IST date changes, the checklist resets automatically for the new day.
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-xl shadow-white/5">
+            <p className="text-xs uppercase tracking-[0.35em] text-white/60">Selected Date</p>
+            <h2 className="mt-2 text-3xl font-semibold text-white">{selectedDateKey}</h2>
+            <p className="mt-1 text-sm text-white/70">{getDayLabel(selectedDateKey)}</p>
+            <p className="mt-4 text-sm text-white/75">
+              The mandatory items stay the same every day, but the topic and checklist state now follow the date you pick in the top bar.
             </p>
           </div>
 
-          <div className="rounded-3xl border border-emerald-500/25 bg-slate-900/75 p-6">
-            <p className="text-xs uppercase tracking-[0.35em] text-emerald-300">Progress</p>
-            <div className="mt-2 text-4xl font-bold text-white">{completedCount}/{checklist.length}</div>
-            <p className="mt-2 text-sm text-slate-300">Finish the checklist items to keep your day on track.</p>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <p className="text-xs uppercase tracking-[0.35em] text-white/60">Today’s Main Topic</p>
+            <div className="mt-2 text-2xl font-bold text-white">{dailyTopic}</div>
+            <p className="mt-3 text-sm text-white/75">Change the selected date in the top bar to update the topic and checklist instantly.</p>
           </div>
         </section>
 
-        <section className="mt-8 rounded-3xl border border-emerald-500/20 bg-slate-900/75 p-6">
+        <section className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.35em] text-emerald-300">Mandatory Things</p>
-              <h3 className="text-xl font-bold text-white">To-do ladder for today</h3>
+              <p className="text-xs uppercase tracking-[0.35em] text-white/60">Mandatory Things</p>
+              <h3 className="text-xl font-bold text-white">To-do ladder</h3>
             </div>
-            <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-100">
-              Constant list • daily reset
+            <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs text-white/80">
+              {completedCount}/{checklist.length} done
             </span>
           </div>
 
@@ -159,15 +237,15 @@ function App() {
             {checklist.map((item) => (
               <label
                 key={item.id}
-                className="flex cursor-pointer items-start gap-3 rounded-2xl border border-emerald-500/20 bg-slate-950/60 p-4 transition hover:border-emerald-300/60"
+                className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-black/70 p-4 transition hover:border-white/30"
               >
                 <input
                   type="checkbox"
                   checked={item.done}
                   onChange={() => toggleTask(item.id)}
-                  className="mt-1 h-4 w-4 accent-emerald-400"
+                  className="mt-1 h-4 w-4 accent-white"
                 />
-                <span className={item.done ? 'text-slate-400 line-through' : 'text-slate-100'}>
+                <span className={item.done ? 'text-white/40 line-through' : 'text-white'}>
                   {item.text}
                 </span>
               </label>
