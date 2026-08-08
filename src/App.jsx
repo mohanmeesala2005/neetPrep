@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 const MANDATORY_TASKS = [
-  'Surgey/OBG - 1.5 Hrs',
+  'Surgey/OBG - 1 Hrs',
   'Pathology - 15mins',
   'Pharmacology - 30mins',
   'Anatomy/Micro 30mins',
   'PYQs - 200 per day / 2 Hrs',
+  'Complied Modules',
+  'Medicine - 1 Hrs',
 ]
 
 const DAILY_TOPICS = [
@@ -108,6 +110,7 @@ function App() {
   const [liveDateKey, setLiveDateKey] = useState(() => getDateKeyInIst())
   const [selectedDateKey, setSelectedDateKey] = useState(() => getDateKeyInIst())
   const [checklist, setChecklist] = useState(() => createChecklist())
+  const [dailyTopicDone, setDailyTopicDone] = useState(false)
   const liveDateKeyRef = useRef(getDateKeyInIst())
 
   useEffect(() => {
@@ -148,9 +151,24 @@ function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
+    const storageKey = `neet-prep-ladder-daily-topic-${selectedDateKey}`
+    const savedState = window.localStorage.getItem(storageKey)
+    setDailyTopicDone(savedState === 'true')
+  }, [selectedDateKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
     const storageKey = `neet-prep-ladder-${selectedDateKey}`
     window.localStorage.setItem(storageKey, JSON.stringify(checklist))
   }, [checklist, selectedDateKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const storageKey = `neet-prep-ladder-daily-topic-${selectedDateKey}`
+    window.localStorage.setItem(storageKey, JSON.stringify(dailyTopicDone))
+  }, [dailyTopicDone, selectedDateKey])
 
   const dailyTopic = useMemo(() => getDailyTopic(selectedDateKey), [selectedDateKey])
   const completedCount = checklist.filter((item) => item.done).length
@@ -217,7 +235,18 @@ function App() {
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
             <p className="text-xs uppercase tracking-[0.35em] text-white/60">Today’s Main Topic</p>
-            <div className="mt-2 text-2xl font-bold text-white">{dailyTopic}</div>
+            <div className="mt-3 flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={dailyTopicDone}
+                onChange={() => setDailyTopicDone((prev) => !prev)}
+                className="h-4 w-4 accent-white"
+                aria-label="Mark daily topic as complete"
+              />
+              <div className={dailyTopicDone ? 'text-2xl font-bold text-white/50 line-through' : 'text-2xl font-bold text-white'}>
+                {dailyTopic}
+              </div>
+            </div>
             <p className="mt-3 text-sm text-white/75">Change the selected date in the top bar to update the topic and checklist instantly.</p>
           </div>
         </section>
